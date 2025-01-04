@@ -356,6 +356,14 @@ const App = () => {
             </span>
           </div>
           <div className="info-item">
+            <span className="title" title="Queued Characters">
+              Character Test:
+            </span>
+            <span className="value">
+              {usedCharacters.length}/{characters.length}
+            </span>
+          </div>
+          <div className="info-item">
             <span className="title" title="Estimated Known Characters">
               Mistakes:
             </span>
