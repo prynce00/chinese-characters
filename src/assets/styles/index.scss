@@ -80,6 +80,8 @@ button {
 
     .character-container {
       display: flex;
+      flex-direction: column;
+      align-items: center;
       width: 100%;
       justify-content: center;
       font-size: 100px;
@@ -156,6 +158,23 @@ button {
       .action-box {
         display: flex;
         gap: 10px;
+      }
+    }
+  }
+
+  .progress-container {
+    display: flex;
+    gap: 5px;
+
+    .bar {
+      display: flex;
+      width: 10px;
+      height: 3px;
+      border: solid 1px #222222;
+
+      &.active {
+        background: #16b45a;
+        border-color: #16b45a;
       }
     }
   }

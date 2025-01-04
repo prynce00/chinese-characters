@@ -75,6 +75,10 @@ const App = () => {
     }, 0);
   };
 
+  const getKnownCharacter = (char) => {
+    return known.find((e) => e.character === char) || null;
+  };
+
   const finalRating = calculateRating();
 
   useEffect(() => {
@@ -303,6 +307,17 @@ const App = () => {
     });
   };
 
+  const resetChallenge = () => {
+    setCharacter(null);
+    setStorage({
+      selectedCharacter: null,
+      usedCharacters: [],
+      state: STATES.RESET,
+      mistakes: 0,
+      nextReviewCharacter: 0,
+    });
+  };
+
   const getScorePercentage = () => {
     const total = processedCharacters;
     const point = (correctAnswers / total) * 100;
@@ -342,6 +357,22 @@ const App = () => {
     </button>
   );
 
+  const ProgressBar = ({ character }) => {
+    const correctCount = getKnownCharacter(character)?.correctCount || 0; // Default to 0 if undefined
+    const maxSpans = 10;
+
+    return (
+      <div className="progress-container">
+        {Array.from({ length: maxSpans }, (_, index) => (
+          <span
+            key={index}
+            className={`bar ${index < correctCount ? "active" : ""}`}
+          ></span>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="app-container">
       <div className="level-selector"></div>
@@ -357,7 +388,7 @@ const App = () => {
           </div>
           <div className="info-item">
             <span className="title" title="Queued Characters">
-              Character Test:
+              Character Challenge:
             </span>
             <span className="value">
               {usedCharacters.length}/{characters.length}
@@ -388,6 +419,9 @@ const App = () => {
           <div className="info-item" onClick={reset}>
             <span className="value">↻ Reset Progress</span>
           </div>
+          <div className="info-item" onClick={resetChallenge}>
+            <span className="value">↻ Reset Challenge</span>
+          </div>
         </div>
         <div className="level-info-container">
           <div className="rank-box">
@@ -405,7 +439,10 @@ const App = () => {
           <>
             {character ? (
               <>
-                <div className="character-container">{character.character}</div>
+                <div className="character-container">
+                  {character.character}
+                  <ProgressBar character={character.character} />
+                </div>
                 <div className="options-container">
                   {options.map((option, ok) => (
                     <div
