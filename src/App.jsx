@@ -363,12 +363,18 @@ const App = () => {
 
     return (
       <div className="progress-container">
-        {Array.from({ length: maxSpans }, (_, index) => (
-          <span
-            key={index}
-            className={`bar ${index < correctCount ? "active" : ""}`}
-          ></span>
-        ))}
+        {correctCount >= maxSpans ? (
+          <span className="check-badge" aria-label="Completed">
+            &#x2714;
+          </span>
+        ) : (
+          Array.from({ length: maxSpans }, (_, index) => (
+            <span
+              key={index}
+              className={`bar ${index < correctCount ? "active" : ""}`}
+            ></span>
+          ))
+        )}
       </div>
     );
   };
