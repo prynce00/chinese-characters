@@ -51,3 +51,10 @@ export const filterUsedCharacters = (mainArray, usedCharacters) => {
   );
   return mainArray.filter((item) => !usedCharacterSet.has(item.character));
 };
+
+export const filteredUsedChars = (usedCharacters) => {
+  return usedCharacters.filter(
+    (item, index, self) =>
+      index === self.findIndex((t) => t.character === item.character)
+  );
+};

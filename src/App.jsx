@@ -3,7 +3,11 @@ import HSK from "./data/hsk_characters.json";
 import { useLocalStorageContext } from "./providers/localStorageProvider";
 import { useEffect, useState } from "react";
 import { STATES } from "./contants";
-import { filterUsedCharacters, getRandomItems } from "./helpers";
+import {
+  filteredUsedChars,
+  filterUsedCharacters,
+  getRandomItems,
+} from "./helpers";
 import PlaySound, { usePlaySound } from "./components/playSound";
 import useKeyPress from "./hooks/useKeyPress";
 
@@ -397,7 +401,7 @@ const App = () => {
               Character Challenge:
             </span>
             <span className="value">
-              {usedCharacters.length}/{characters.length}
+              {filteredUsedChars(usedCharacters).length}/{characters.length}
             </span>
           </div>
           <div className="info-item">
