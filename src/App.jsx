@@ -262,7 +262,12 @@ const App = () => {
     } else {
       const knownItem = known.find((item) => item.character === char);
       if (knownItem) {
-        knownItem.correctCount -= 1;
+        const deductor =
+          knownItem.correctCount >= 10 ? knownItem.correctCount : 1;
+        knownItem.correctCount -= deductor;
+
+        newMistakes = mistakes + 1;
+
         if (knownItem.correctCount <= 0) {
           newKnown = known.filter((item) => item.character !== char);
         } else {
@@ -271,8 +276,6 @@ const App = () => {
       } else {
         newKnown = [...known];
       }
-
-      newMistakes = mistakes + 1;
     }
 
     newNextRevChar = nextReviewCharacter - 1;
