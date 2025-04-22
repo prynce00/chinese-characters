@@ -25,6 +25,12 @@ const App = () => {
   const playSound = usePlaySound(character?.pinyin);
   const playSoundError = usePlaySound("error");
 
+  const mc = Object.fromEntries(
+    Object.entries(charStats).filter(([_, v]) => v >= masteryCount)
+  );
+
+  const masteredChars = Object.keys(mc);
+
   const loadCharacters = () => {
     const orderedLevel = HSK.sort((a, b) => parseInt(a.hsk) - parseInt(b.hsk));
 
@@ -65,7 +71,7 @@ const App = () => {
   const handleStates = () => {
     if (state === STATES.ONGOING) {
       if (!character) {
-        const randomItem = getRandomItems(characters, usedCharacters);
+        const randomItem = getRandomItems(characters, known);
 
         if (randomItem.length === 6) {
           setCharacter(randomItem[0]);
@@ -84,7 +90,7 @@ const App = () => {
   };
 
   const getUserCharactersLen = () =>
-    filterUsedCharacters(characters, usedCharacters).length;
+    filterUsedCharacters(characters, known).length;
 
   const getRankAndStars = (rating) => {
     if (typeof rating !== "number" || rating < 0) {
@@ -304,12 +310,6 @@ const App = () => {
       charStats,
     });
   };
-
-  const mc = Object.fromEntries(
-    Object.entries(charStats).filter(([_, v]) => v >= masteryCount)
-  );
-
-  const masteredChars = Object.keys(mc);
 
   return (
     <div className="app-container">
