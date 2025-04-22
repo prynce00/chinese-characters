@@ -1,6 +1,12 @@
 export const getRandomItems = (items, usedCharacters, maxItems = 6) => {
   const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+  const getRandomFromFirstTen = (words) => {
+    const firstTen = words.slice(0, 10);
+    const randomIndex = Math.floor(Math.random() * firstTen.length);
+    return firstTen[randomIndex];
+  };
+
   const usedCharacterSet = new Set(
     usedCharacters.map((item) => item.character)
   );
@@ -29,7 +35,7 @@ export const getRandomItems = (items, usedCharacters, maxItems = 6) => {
     return result;
   };
 
-  const firstItem = getRandomItem(availableItems);
+  const firstItem = getRandomFromFirstTen(availableItems);
   if (!firstItem) return [];
 
   const remainingPool = items.filter((item) => item !== firstItem);

@@ -3,13 +3,8 @@ import HSK from "./data/hsk_characters.json";
 import { useLocalStorageContext } from "./providers/localStorageProvider";
 import { useEffect, useState } from "react";
 import { STATES } from "./contants";
-import {
-  filteredUsedChars,
-  filterUsedCharacters,
-  getRandomItems,
-} from "./helpers";
+import { filterUsedCharacters, getRandomItems } from "./helpers";
 import PlaySound, { usePlaySound } from "./components/playSound";
-import useKeyPress from "./hooks/useKeyPress";
 
 const App = () => {
   const { storage, setStorage } = useLocalStorageContext();
@@ -18,53 +13,24 @@ const App = () => {
   const correctAnswers = storage?.correctAnswers || 0;
   const processedCharacters = storage?.processedCharacters || 0;
   const usedCharacters = storage?.usedCharacters || [];
-  const mistakes = storage?.mistakes || 0;
-  const nextReviewCharacter = storage?.nextReviewCharacter || 10;
-  const totalAllowedMistakes = 10;
   const known = storage?.known || [];
+  const counter = storage?.counter || 0;
+  const masteryCount = 100;
+  const charStats = storage?.charStats || {};
   const [character, setCharacter] = useState(null);
   const [characters, setCharacters] = useState([]);
   const [totalCharacters, setTotalCharacters] = useState([]);
+  const [view, setView] = useState("game");
   const [options, setOptions] = useState([]);
-  const [isReview, setReview] = useState(false);
   const playSound = usePlaySound(character?.pinyin);
-  const { isSpacePressed, characterPressed } = useKeyPress();
-
-  const characterCount = known.length + 10;
+  const playSoundError = usePlaySound("error");
 
   const loadCharacters = () => {
     const orderedLevel = HSK.sort((a, b) => parseInt(a.hsk) - parseInt(b.hsk));
 
     setTotalCharacters(orderedLevel);
 
-    const characterSet = orderedLevel
-      .slice(0, characterCount)
-      .sort(() => 0.5 - Math.random());
-
-    setCharacters(characterSet);
-  };
-
-  const pickLeastKnownCharacterData = () => {
-    if (!known.length) return false;
-
-    const minCorrectCount = Math.min(...known.map((item) => item.correctCount));
-
-    if (minCorrectCount > 10) return false;
-
-    const leastKnownCharacters = known.filter(
-      (item) => item.correctCount === minCorrectCount
-    );
-
-    const reviewChar =
-      leastKnownCharacters[
-        Math.floor(Math.random() * leastKnownCharacters.length)
-      ];
-
-    return (
-      totalCharacters.find(
-        (entry) => entry.character === reviewChar.character
-      ) || false
-    );
+    setCharacters(orderedLevel);
   };
 
   const calculateRating = () => {
@@ -79,10 +45,6 @@ const App = () => {
     }, 0);
   };
 
-  const getKnownCharacter = (char) => {
-    return known.find((e) => e.character === char) || null;
-  };
-
   const finalRating = calculateRating();
 
   useEffect(() => {
@@ -90,66 +52,20 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (isSpacePressed && state === STATES.REVEAL) {
-      setCharacter(null);
+    const reuseFrequency = 5;
+
+    if (counter >= reuseFrequency) {
       setStorage({
-        selectedCharacter: null,
-        state: STATES.ONGOING,
+        counter: 0,
       });
+      reuseChars(1);
     }
-  }, [isSpacePressed]);
-
-  useEffect(() => {
-    const shortcuts = {
-      E: 0,
-      I: 1,
-      D: 2,
-      J: 3,
-      C: 4,
-      N: 5,
-    };
-
-    const optionkey = shortcuts[characterPressed];
-
-    if (state === STATES.ONGOING && optionkey !== undefined) {
-      document.querySelectorAll(".option-btn")[optionkey].click();
-    }
-  }, [characterPressed]);
+  }, [counter]);
 
   const handleStates = () => {
     if (state === STATES.ONGOING) {
       if (!character) {
         const randomItem = getRandomItems(characters, usedCharacters);
-
-        if (isReview) {
-          const reviewChar = pickLeastKnownCharacterData();
-
-          if (reviewChar) {
-            randomItem[0] = reviewChar;
-
-            const pinyinSet = new Set(randomItem.map((item) => item.pinyin));
-
-            if (pinyinSet.size < randomItem.length) {
-              const filteredCharacters = characters.filter(
-                (char) =>
-                  !usedCharacters.includes(char.character) &&
-                  !pinyinSet.has(char.pinyin)
-              );
-
-              for (let i = 0; i < randomItem.length; i++) {
-                if (
-                  randomItem
-                    .slice(i + 1)
-                    .some((item) => item.pinyin === randomItem[i].pinyin)
-                ) {
-                  randomItem[i] = filteredCharacters.pop() || randomItem[i];
-                }
-              }
-            }
-          }
-        }
-
-        setReview(false);
 
         if (randomItem.length === 6) {
           setCharacter(randomItem[0]);
@@ -230,6 +146,35 @@ const App = () => {
     return { rank: "Unknown", stars: 0, starIcons: "" }; // Fallback case
   };
 
+  const reuseChars = (chars = 1) => {
+    // Mastered words shouldn't be part of reuse words anymore
+    const finalChars = usedCharacters.filter((e) => {
+      const stats = charStats?.[e.character] || 0;
+
+      return stats < masteryCount;
+    });
+
+    const removed = [];
+    const removedUsedChar = [...finalChars]; // so the original array isn't mutated
+
+    const countToRemove = Math.min(chars, removedUsedChar.length);
+
+    for (let i = 0; i < countToRemove; i++) {
+      const randomIndex = Math.floor(Math.random() * removedUsedChar.length);
+      const [removedItem] = removedUsedChar.splice(randomIndex, 1);
+      removed.push(removedItem.character);
+    }
+
+    const newKnown = known.filter((e) => !removed.includes(e.character));
+
+    setTimeout(() => {
+      setStorage({
+        usedCharacters: removedUsedChar,
+        known: newKnown,
+      });
+    }, 100);
+  };
+
   const revealAnswer = (selected) => {
     if (state !== STATES.ONGOING) {
       return false;
@@ -246,8 +191,10 @@ const App = () => {
 
     let newUsedChar = usedCharacters;
     let newKnown = known;
-    let newMistakes = mistakes;
-    let newNextRevChar = nextReviewCharacter;
+
+    if (!charStats[char]) {
+      charStats[char] = 0;
+    }
 
     if (isCorrect) {
       const knownItem = known.find((item) => item.character === char);
@@ -259,14 +206,14 @@ const App = () => {
       }
 
       newUsedChar = [...usedCharacters, character];
+
+      charStats[char] += 1;
     } else {
       const knownItem = known.find((item) => item.character === char);
       if (knownItem) {
         const deductor =
           knownItem.correctCount >= 10 ? knownItem.correctCount : 1;
         knownItem.correctCount -= deductor;
-
-        newMistakes = mistakes + 1;
 
         if (knownItem.correctCount <= 0) {
           newKnown = known.filter((item) => item.character !== char);
@@ -276,12 +223,17 @@ const App = () => {
       } else {
         newKnown = [...known];
       }
-    }
 
-    newNextRevChar = nextReviewCharacter - 1;
+      charStats[char] -= 1;
 
-    if (newNextRevChar <= 0) {
-      setReview(true);
+      if (charStats[char] < 0) {
+        charStats[char] = 0;
+      }
+
+      reuseChars(7);
+
+      // Play error sound
+      playSoundError("error");
     }
 
     let newStoreItem = {
@@ -291,8 +243,8 @@ const App = () => {
       correctAnswers: newCorrectAnswers,
       processedCharacters: processedCharacters + 1,
       known: newKnown,
-      mistakes: newMistakes,
-      nextReviewCharacter: newNextRevChar,
+      counter: counter + 1,
+      charStats,
     };
 
     setStorage(newStoreItem);
@@ -308,20 +260,8 @@ const App = () => {
       state: STATES.RESET,
       rating: 0,
       known: [],
-      unknown: [],
-      mistakes: 0,
-      nextReviewCharacter: 0,
-    });
-  };
-
-  const resetChallenge = () => {
-    setCharacter(null);
-    setStorage({
-      selectedCharacter: null,
-      usedCharacters: [],
-      state: STATES.RESET,
-      mistakes: 0,
-      nextReviewCharacter: 0,
+      counter: 0,
+      charStats: {},
     });
   };
 
@@ -342,13 +282,6 @@ const App = () => {
     if (getUserCharactersLen() <= 0) {
       loadCharacters();
     }
-
-    if (mistakes >= totalAllowedMistakes) {
-      setStorage({
-        usedCharacters: [],
-        mistakes: 0,
-      });
-    }
   }, [state, characters]);
 
   const ContinueBtn = ({ label, action }) => (
@@ -364,27 +297,19 @@ const App = () => {
     </button>
   );
 
-  const ProgressBar = ({ character }) => {
-    const correctCount = getKnownCharacter(character)?.correctCount || 0; // Default to 0 if undefined
-    const maxSpans = 10;
+  const addMasterChar = (char, add = true) => {
+    charStats[char] = !add ? 0 : masteryCount;
 
-    return (
-      <div className="progress-container">
-        {correctCount >= maxSpans ? (
-          <span className="check-badge" aria-label="Completed">
-            &#x2714;
-          </span>
-        ) : (
-          Array.from({ length: maxSpans }, (_, index) => (
-            <span
-              key={index}
-              className={`bar ${index < correctCount ? "active" : ""}`}
-            ></span>
-          ))
-        )}
-      </div>
-    );
+    setStorage({
+      charStats,
+    });
   };
+
+  const mc = Object.fromEntries(
+    Object.entries(charStats).filter(([_, v]) => v >= masteryCount)
+  );
+
+  const masteredChars = Object.keys(mc);
 
   return (
     <div className="app-container">
@@ -400,42 +325,20 @@ const App = () => {
             </span>
           </div>
           <div className="info-item">
-            <span className="title" title="Queued Characters">
-              Character Challenge:
-            </span>
-            <span className="value">
-              {filteredUsedChars(usedCharacters).length}/{characters.length}
-            </span>
-          </div>
-          <div className="info-item">
-            <span className="title" title="Estimated Known Characters">
-              Mistakes:
-            </span>
-            <span className="value">
-              {mistakes}/{totalAllowedMistakes}
-            </span>
-          </div>
-          <div className="info-item">
-            <span className="title" title="Estimated Known Characters">
-              Next Review Character:
-            </span>
-            <span className="value">
-              {nextReviewCharacter}({pickLeastKnownCharacterData()?.character})
-            </span>
-          </div>
-          <div className="info-item">
             <span className="title">Accuracy:</span>
             <span className="value">
               {correctAnswers}/{processedCharacters} ({getScorePercentage()}%)
             </span>
           </div>
-          <div className="info-item" onClick={reset}>
+          <div className="info-item pointer" onClick={reset}>
             <span className="value">↻ Reset Progress</span>
           </div>
-          <div className="info-item" onClick={resetChallenge}>
-            <span className="value">↻ Reset Challenge</span>
+          <div className="info-item pointer" onClick={() => setView("master")}>
+            <span className="title">Mastered Characters:</span>
+            <span className="value">({masteredChars?.length})</span>
           </div>
         </div>
+
         <div className="level-info-container">
           <div className="rank-box">
             <span className="stars">
@@ -446,26 +349,37 @@ const App = () => {
           </div>
         </div>
       </div>
-      <div className="game-container">
-        {state === STATES.RESET && <ContinueBtn label="Start" />}
-        {(state === STATES.ONGOING || state === STATES.REVEAL) && (
-          <>
-            {character ? (
-              <>
-                <div className="character-container">
-                  {character.character}
-                  <ProgressBar character={character.character} />
-                </div>
-                <div className="options-container">
-                  {options.map((option, ok) => (
-                    <div
-                      key={`option-btn-${option.pinyin}-${ok}`}
-                      className={`btn-container ${
-                        state === STATES.REVEAL &&
-                        (character.character === option.character
-                          ? "correct"
-                          : "")
-                      }
+      {view === "game" && (
+        <div className="game-container">
+          {state === STATES.RESET && <ContinueBtn label="Start" />}
+          {(state === STATES.ONGOING || state === STATES.REVEAL) && (
+            <>
+              {character ? (
+                <>
+                  <div className="character-container">
+                    {character.character}
+                    <div className="sub-item">
+                      {charStats?.[character.character] >= masteryCount ? (
+                        <span className="master-item">★</span>
+                      ) : (
+                        <span
+                          onClick={() => addMasterChar(character.character)}
+                        >
+                          + Add to mastered list{" "}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="options-container">
+                    {options.map((option, ok) => (
+                      <div
+                        key={`option-btn-${option.pinyin}-${ok}`}
+                        className={`btn-container ${
+                          state === STATES.REVEAL &&
+                          (character.character === option.character
+                            ? "correct"
+                            : "")
+                        }
                    ${
                      state === STATES.REVEAL &&
                      storage.selectedCharacter === option.character
@@ -474,51 +388,74 @@ const App = () => {
                          : "wrong"
                        : ""
                    }`}
-                    >
-                      <PlaySound filename={option.pinyin} />
-                      <button
-                        className="option-btn"
-                        onClick={() => revealAnswer(option)}
                       >
-                        {option.pinyin}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                {!currentLevels ? (
-                  <p>Select a level to continue</p>
-                ) : (
-                  <ContinueBtn
-                    label="Reset"
-                    action={() => {
-                      reset();
-                    }}
-                  />
-                )}
-              </>
-            )}
-          </>
-        )}
-        {state === STATES.REVEAL && (
-          <div className="answer-container">
-            <span className="info">{character?.definition}</span>
-            <div className="action-box">
-              <ContinueBtn
-                label="Next"
-                action={() => {
-                  setCharacter(null);
-                  setStorage({
-                    selectedCharacter: null,
-                  });
-                }}
-              />
+                        <PlaySound filename={option.pinyin} />
+                        <button
+                          className="option-btn"
+                          onClick={() => revealAnswer(option)}
+                        >
+                          {option.pinyin}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {!currentLevels ? (
+                    <p>Select a level to continue</p>
+                  ) : (
+                    <ContinueBtn
+                      label="Reset"
+                      action={() => {
+                        reset();
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </>
+          )}
+          {state === STATES.REVEAL && (
+            <div className="answer-container">
+              <span className="info">{character?.definition}</span>
+              <div className="action-box">
+                <ContinueBtn
+                  label="Next"
+                  action={() => {
+                    setCharacter(null);
+                    setStorage({
+                      selectedCharacter: null,
+                    });
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {view === "master" && (
+        <div className="table-container">
+          <span className="table-title">Mastered Characters</span>
+          <span className="pointer" onClick={() => setView("game")}>
+            ← Back to game
+          </span>
+          <div className="table-box">
+            <span className="title">Press to remove</span>
+            <div className="box-container">
+              {masteredChars.map((e) => (
+                <span
+                  className="box-item pointer"
+                  key={e}
+                  onClick={() => addMasterChar(e, false)}
+                >
+                  {e}
+                </span>
+              ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
